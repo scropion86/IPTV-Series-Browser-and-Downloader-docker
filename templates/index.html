@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="container">
+        <div class="search-container">
+            <a href="{{ url_for('search') }}" class="search-button" target="_blank">
+                Search Series
+            </a>
+        </div>
+        <h1>Series Categories</h1>
+        <p>Total Categories: {{ total_categories }}</p>
+        <div class="category-grid">
+            {% for category in categories %}
+            <a href="{{ url_for('series', category_id=category.category_id) }}" class="category-card">
+                <div class="category-content">
+                    <h2>{{ category.category_name }}</h2>
+                    <p>Series: {{ category_counts.get(category.category_id, 'NA') }}</p>
+                    <span class="view-series">View Series →</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+
+        {% if total_pages > 1 %}
+        <div class="pagination">
+            {% if current_page > 1 %}
+            <a href="{{ url_for('index', page=current_page-1) }}" class="page-link">Previous</a>
+            {% endif %}
+            
+            {% for p in range(1, total_pages + 1) %}
+            <a href="{{ url_for('index', page=p) }}" 
+               class="page-link {% if p == current_page %}active{% endif %}">{{ p }}</a>
+            {% endfor %}
+            
+            {% if current_page < total_pages %}
+            <a href="{{ url_for('index', page=current_page+1) }}" class="page-link">Next</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+{% endblock %}

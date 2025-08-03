@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Search Series{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="page-title">Search Series</h1>
+
+    <form action="{{ url_for('search') }}" method="GET" class="search-form">
+        <div class="search-input-group">
+            <input type="text" class="search-input" placeholder="Search by series name, actor, or plot..." name="query" value="{{ query if query else '' }}">
+            <button class="search-button" type="submit">Search</button>
+        </div>
+    </form>
+
+    {% if last_fetch_date %}
+    <p class="cache-info">Last cached: <span id="lastFetchDate">{{ last_fetch_date }}</span></p>
+    {% else %}
+    <p class="cache-info">No cached data found. Please run the caching process.</p>
+    {% endif %}
+
+    {% if query and results %}
+    <h2 class="results-title">Search Results for "{{ query }}"</h2>
+    <div class="results-grid">
+        {% for series in results %}
+        <div class="series-card">
+            <div class="series-header">
+                <h3 class="series-title">{{ series.series_name }}</h3>
+                <span class="series-category">Category: {{ series.category_ID }}</span>
+            </div>
+            <div class="series-info">
+                <h4>Actors:</h4>
+                <p>{{ series.actors | join(', ') if series.actors else 'N/A' }}</p>
+            </div>
+            <div class="series-info">
+                <h4>Plot:</h4>
+                <p>{{ series.plot if series.plot else 'No plot available.' }}</p>
+            </div>
+            <form action="{{ url_for('download') }}" method="POST" target="_blank">
+                <input type="hidden" name="series_id" value="{{ series.series_id }}">
+                <button type="submit" class="search-button">View Details / Download</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% elif query and not results %}
+    <div class="no-results">No results found for "{{ query }}".</div>
+    {% endif %}
+
+    <h2 class="mt-4">Caching Management</h2>
+    <p>To update the cached data, click the button below. This might take some time.</p>
+    <button id="cacheButton" class="search-button">Process and Cache Data</button>
+    <div id="cacheStatus" class="mt-2"></div>
+    <div id="progressContainer" class="progress-container" style="display: none;">
+        <div id="progressBar" class="progress-bar"></div>
+        <span id="progressText">0%</span>
+    </div>
+
+<script>
+    // Function to format ISO date string to readable date and time
+    function formatISODate(isoString) {
+        const date = new Date(isoString); // Parse ISO 8601 string directly
+        if (isNaN(date.getTime())) { // Check for invalid date
+            return "Invalid Date";
+        }
+        return date.toLocaleString(); // Adjusts to local date and time format
+    }
+
+    // Apply formatting if last_fetch_date exists
+    const lastFetchDateSpan = document.getElementById('lastFetchDate');
+    if (lastFetchDateSpan && lastFetchDateSpan.textContent) {
+        const isoDateString = lastFetchDateSpan.textContent;
+        lastFetchDateSpan.textContent = formatISODate(isoDateString);
+    }
+
+    document.getElementById('cacheButton').addEventListener('click', function() {
+        const statusDiv = document.getElementById('cacheStatus');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        
+        // Disable button during processing
+        this.disabled = true;
+        
+        // Show progress container
+        progressContainer.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
+        
+        // Create EventSource connection for progress updates
+        const eventSource = new EventSource('/cache_progress');
+        
+        eventSource.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            if (data.progress) {
+                const percent = Math.round(data.progress);
+                progressBar.style.width = percent + '%';
+                progressText.textContent = percent + '%';
+            }
+            if (data.status === 'complete') {
+                statusDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                eventSource.close();
+                setTimeout(() => location.reload(), 2000);
+            } else if (data.status === 'error') {
+                statusDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                eventSource.close();
+                document.getElementById('cacheButton').disabled = false;
+            }
+        };
+        
+        eventSource.onerror = function() {
+            statusDiv.innerHTML = '<div class="alert alert-danger">Connection error during caching</div>';
+            eventSource.close();
+            document.getElementById('cacheButton').disabled = false;
+        };
+        
+        // Start the caching process
+        fetch('/cache_data')
+            .catch(error => {
+                console.error('Error:', error);
+                statusDiv.innerHTML = '<div class="alert alert-danger">Failed to start caching process</div>';
+                document.getElementById('cacheButton').disabled = false;
+            });
+    });
+</script>
+
+<style>
+    .progress-container {
+        margin-top: 1rem;
+        position: relative;
+        height: 24px;
+        background-color: #f0f0f0;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background-color: #28a745;
+        transition: width 0.3s ease;
+    }
+    
+    #progressText {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #333;
+        font-weight: bold;
+    }
+    
+    .dark-mode .progress-container {
+        background-color: #444;
+    }
+    
+    .dark-mode #progressText {
+        color: #fff;
+    }
+</style>
+</div>
+{% endblock %}

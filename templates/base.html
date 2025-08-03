@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Series Downloader</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <h1>Series Downloader</h1>
+            <div class="dark-mode-toggle">
+                <input type="checkbox" id="dark-mode-switch">
+                <label for="dark-mode-switch">Dark Mode</label>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const darkModeSwitch = document.getElementById('dark-mode-switch');
+            const body = document.body;
+
+            // Load saved theme preference
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                body.classList.add(savedTheme);
+                if (savedTheme === 'dark-mode') {
+                    darkModeSwitch.checked = true;
+                }
+            } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                // Check system preference if no saved theme
+                body.classList.add('dark-mode');
+                darkModeSwitch.checked = true;
+            }
+
+            // Toggle dark mode on switch change
+            darkModeSwitch.addEventListener('change', () => {
+                if (darkModeSwitch.checked) {
+                    body.classList.add('dark-mode');
+                    localStorage.setItem('theme', 'dark-mode');
+                } else {
+                    body.classList.remove('dark-mode');
+                    localStorage.setItem('theme', 'light-mode');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

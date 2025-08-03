@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="container">
+        <a href="{{ url_for('series', category_id=series.info.category_id) }}" class="button">← Return to Series</a>
+        <h1>{{ series.info.name }}</h1>
+        <div class="series-info">
+            <img src="{{ series.info.cover }}" alt="{{ series.info.name }}">
+            <p>{{ series.info.plot }}</p>
+            <p><strong>Total Seasons:</strong> {{ series.episodes|length }}</p>
+            
+            {% set total_size = namespace(value=0) %}
+            {% set total_duration = namespace(value=0) %}
+            {% set episode_count = namespace(value=0) %}
+            
+            {% for season, episodes in series.episodes.items() %}
+                {% for episode in episodes %}
+                    {% if episode.info and episode.info.bitrate and episode.info.duration_secs %}
+                        {% set total_size.value = total_size.value + (episode.info.bitrate * 1000 * episode.info.duration_secs / 8 / 1024 / 1024) %}
+                        {% set total_duration.value = total_duration.value + episode.info.duration_secs %}
+                        {% set episode_count.value = episode_count.value + 1 %}
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+            
+            <div class="series-stats">
+                <p><strong>Average File Size:</strong> {{ "%.2f"|format(total_size.value / episode_count.value) }} MB</p>
+                <p><strong>Average Duration:</strong> {{ "%02d:%02d"|format((total_duration.value / episode_count.value) // 60, (total_duration.value / episode_count.value) % 60) }}</p>
+            </div>
+            
+            <ul>
+                {% for season, episodes in series.episodes.items() %}
+                <li><strong>Season {{ season }}:</strong> {{ episodes|length }} episodes</li>
+                {% endfor %}
+            </ul>
+            <div class="episode-list">
+                {% for season, episodes in series.episodes.items() %}
+                <div class="season">
+                    <h2>Season {{ season }}</h2>
+                    <form action="{{ url_for('download_episodes') }}" method="POST" class="download-form">
+                        <input type="hidden" name="series_id" value="{{ series_id }}">
+                        <input type="hidden" name="season" value="{{ season }}">
+                        <div class="episode-range">
+                            <label>From episode:</label>
+                            <input type="number" name="start_episode" min="1" max="{{ episodes|length }}" value="1" required>
+                            <label>To episode:</label>
+                            <input type="number" name="end_episode" min="1" max="{{ episodes|length }}" value="{{ episodes|length }}" required>
+                        </div>
+                        <button type="submit" class="button">Download Selected Episodes</button>
+                    </form>
+                    <div id="download-status-{{ season }}" class="download-status" style="display: none;">
+                        <h3>Download Progress</h3>
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress"></div>
+                            </div>
+                            <div class="progress-text">0%</div>
+                        </div>
+                        <div class="status-text">Initializing...</div>
+                        <div class="current-file"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.querySelectorAll('.download-form').forEach(form => {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const season = formData.get('season');
+            const statusDiv = document.getElementById(`download-status-${season}`);
+            const progressBar = statusDiv.querySelector('.progress');
+            const progressText = statusDiv.querySelector('.progress-text');
+            const statusText = statusDiv.querySelector('.status-text');
+            const currentFile = statusDiv.querySelector('.current-file');
+            
+            // Show status div and disable form
+            statusDiv.style.display = 'block';
+            form.querySelectorAll('input, button').forEach(el => el.disabled = true);
+            
+            try {
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Connect to SSE for progress updates
+                const eventSource = new EventSource('/progress');
+                
+                eventSource.onmessage = function(event) {
+                    const progress = JSON.parse(event.data);
+                    console.log('Progress update:', progress);  // Debug log
+                    
+                    // Update progress bar
+                    const percentage = Math.round(progress.progress);
+                    progressBar.style.width = `${percentage}%`;
+                    progressText.textContent = `${percentage}%`;
+                    
+                    // Update current file and status
+                    if (progress.episode) {
+                        currentFile.textContent = `Downloading: ${progress.episode}`;
+                    }
+                    
+                    if (progress.status === 'error') {
+                        statusText.innerHTML = `<span class="error">Error: ${progress.error || 'Download failed'}</span>`;
+                        eventSource.close();
+                        form.querySelectorAll('input, button').forEach(el => el.disabled = false);
+                    } else if (progress.status === 'complete') {
+                        statusText.innerHTML = `<span class="success">${progress.message}</span>`;
+                        currentFile.textContent = '';
+                        eventSource.close();
+                        form.querySelectorAll('input, button').forEach(el => el.disabled = false);
+                    }
+                };
+                
+                eventSource.onerror = function() {
+                    statusText.innerHTML = '<span class="error">Connection lost. Please refresh the page.</span>';
+                    eventSource.close();
+                    form.querySelectorAll('input, button').forEach(el => el.disabled = false);
+                };
+                
+            } catch (error) {
+                statusText.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                form.querySelectorAll('input, button').forEach(el => el.disabled = false);
+            }
+        });
+    });
+    </script>
+{% endblock %}

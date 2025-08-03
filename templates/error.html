@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="container">
+        <div class="error-message">
+            <h1>Error</h1>
+            <p>{{ message }}</p>
+            <p>Page will automatically refresh in 10 seconds...</p>
+            <a href="/" class="button">Retry Now</a>
+        </div>
+    </div>
+{% endblock %}
+</body>
+</html>
