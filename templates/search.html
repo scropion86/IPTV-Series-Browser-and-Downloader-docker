@@ -23,24 +23,27 @@
     <h2 class="results-title">Search Results for "{{ query }}"</h2>
     <div class="results-grid">
         {% for series in results %}
-        <div class="series-card">
-            <div class="series-header">
-                <h3 class="series-title">{{ series.series_name }}</h3>
-                <span class="series-category">Category: {{ series.category_ID }}</span>
+            <div class="series-card">
+                <div class="series-header">
+                    <h3 class="series-title">{{ series.series_name }}</h3>
+                    <span class="series-category">Category: {{ series.category_ID }}</span>
+                </div>
+                <div class="series-image">
+                    <img src="{{ series.cover_url }}" alt="{{ series.series_name }}" loading="lazy" class="card-img">
+                </div>
+                <div class="series-info">
+                    <h4>Actors:</h4>
+                    <p>{{ series.actors | join(', ') if series.actors else 'N/A' }}</p>
+                </div>
+                <div class="series-info">
+                    <h4>Plot:</h4>
+                    <p>{{ series.plot if series.plot else 'No plot available.' }}</p>
+                </div>
+                <form action="{{ url_for('download') }}" method="POST" target="_blank">
+                    <input type="hidden" name="series_id" value="{{ series.series_id }}">
+                    <button type="submit" class="search-button">View Details / Download</button>
+                </form>
             </div>
-            <div class="series-info">
-                <h4>Actors:</h4>
-                <p>{{ series.actors | join(', ') if series.actors else 'N/A' }}</p>
-            </div>
-            <div class="series-info">
-                <h4>Plot:</h4>
-                <p>{{ series.plot if series.plot else 'No plot available.' }}</p>
-            </div>
-            <form action="{{ url_for('download') }}" method="POST" target="_blank">
-                <input type="hidden" name="series_id" value="{{ series.series_id }}">
-                <button type="submit" class="search-button">View Details / Download</button>
-            </form>
-        </div>
         {% endfor %}
     </div>
     {% elif query and not results %}
@@ -125,37 +128,35 @@
 </script>
 
 <style>
-    .progress-container {
-        margin-top: 1rem;
-        position: relative;
-        height: 24px;
-        background-color: #f0f0f0;
-        border-radius: 4px;
+    .results-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+
+    .series-card {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        width: 300px; /* Fixed width for consistency */
+    }
+
+    .series-image {
+        height: 200px; /* Fixed height for consistency */
         overflow: hidden;
     }
-    
-    .progress-bar {
+
+    .card-img {
+        width: 100%;
         height: 100%;
-        background-color: #28a745;
-        transition: width 0.3s ease;
+        object-fit: cover;
     }
-    
-    #progressText {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: #333;
-        font-weight: bold;
-    }
-    
-    .dark-mode .progress-container {
-        background-color: #444;
-    }
-    
-    .dark-mode #progressText {
-        color: #fff;
+
+    .series-header,
+    .series-info,
+    form {
+        padding: 15px;
     }
 </style>
-</div>
 {% endblock %}
